@@ -1,0 +1,140 @@
+https://www.edureka.co/blog/install-kubernetes-on-ubuntu
+
+# download ubuntu from https://ubuntu.com/download/desktop   
+# Ubuntu 20.10 - Version used 
+
+#Enabling SSH on Ubuntu -- > https://linuxize.com/post/how-to-enable-ssh-on-ubuntu-18-04/
+#The latest version of the Ubuntu operating system for desktop PCs and laptops  --- >https://ubuntu.com/download/desktop
+#Install Docker Engine on Ubuntu ---> https://docs.docker.com/engine/install/ubuntu/
+#Installing kubeadm ---->https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+#Creating a cluster with kubeadm --->https://v1-18.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+#Introducing Weave Net|Integrating Kubernetes via the Addon  --- > https://www.weave.works/docs/net/latest/kubernetes/kube-addon/
+
+sudo apt update
+apt install net-tools 
+
+
+*******Install SSH for Putty******* #FROM <https://askubuntu.com/questions/760378/can-not-install-openssh-server-on-ubuntu-16-04> 
+sudo apt install openssh-server         <------ Install SSHD 
+
+---> systemctl status sshd
+---> sudo ufw allow ssh  ----For firewall enable on port 22
+
+1) Disable Swap
+## By disabling swapping, you will also prevent memory algorithms from doing unnecessary operation - moving data from RAM to swap and vice versa - in case of SSD this will prevent excessive wear. And in any case this will improve the performance by eliminating unnecessary operations
+https://superuser.com/questions/810170/should-i-disable-swap-file-if-i-have-lots-of-ram-or-should-i-move-it-to-a-virtua#:~:text=By%20disabling%20swapping%2C%20you%20will,performance%20by%20eliminating%20unnecessary%20operations.
+   ============
+--->  sudo swapoff -a
+
+#(put sign # at the beginning on the UUID of swap partition)
+
+----> sudo nano /etc/fstab 
+
+
+
+2) Letting iptables see bridged traffic (br_netfilter module should be loaded)
+Make sure that the br_netfilter module is loaded. This can be done by running lsmod | grep br_netfilter. To load it explicitly call sudo modprobe br_netfilter.
+As a requirement for your Linux Node's iptables to correctly see bridged traffic, you should ensure net.bridge.bridge-nf-call-iptables is set to 1 in your sysctl config, e.g.
+   ===========================================================================
+
+---> lsmod | grep br_netfilter
+---> modprobe br_netfilter
+---> lsmod | grep br_netfilter
+
+---> cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+
+---->  sudo sysctl --system
+
+#sysctl is a software utility of some Unix-like operating systems that reads 
+#and modifies the attributes of the system kernel such as its version number, 
+#maximum limits, and security settings.
+
+
+3) Container runtime (Docker)
+   ==========================
+
+Reference:
+# https://v1-18.docs.kubernetes.io/docs/setup/production-environment/container-runtimes/
+# https://docs.docker.com/engine/install/ubuntu/
+---------
+
+# (Install Docker CE)
+## Set up the repository:
+### Install packages to allow apt to use a repository over HTTPS
+-----------------------------------------------------------------
+
+#Uninstall old versions 
+
+sudo apt-get remove docker docker-engine docker.io containerd runc
+
+#SET UP THE REPOSITORY
+-------------------------
+
+ sudo apt-get update
+
+$ sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg-agent \
+    software-properties-common
+
+# Add Docker’s official GPG key:
+--------------------------------
+
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+
+# Add the Docker apt repository: Use the following command to set up the stable repository.
+-------------------------------
+sudo add-apt-repository \
+  "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) \
+  stable"
+
+#INSTALL DOCKER ENGINE
+ ___________________
+ $ sudo apt-get update
+ $ sudo apt-get install docker-ce docker-ce-cli containerd.io
+
+# Set up the Docker daemon
+---------------------------
+
+cat > /etc/docker/daemon.json <<EOF
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+
+mkdir -p /etc/systemd/system/docker.service.d
+
+# Restart Docker
+----------------
+systemctl daemon-reload
+systemctl enable docker
+systemctl restart docker
+systemctl status docker
+
+4) Installing kubeadm, kubelet and kubectl
+   =======================================
+
+sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+sudo curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+
+sudo apt-get update
+sudo apt-cache policy kubeadm | grep 1.19
+
+
+sudo apt-get install -y kubelet=1.19.0-00 kubeadm=1.19.0-00 kubectl=1.19.0-00
+sudo apt-mark hold kubelet kubeadm kubectl
